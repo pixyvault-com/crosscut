@@ -1,0 +1,10 @@
+[package]
+name = "proxy"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+email_address = "0.2.9"
+phonenumber = "0.3.9"
+otp-auth = "0.1.0"
+url = "2.5.8"
