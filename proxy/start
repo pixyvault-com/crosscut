@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+set -ex
+
+name="proxy.${1}"
+
+function cleanup {
+        set +e
+}
+trap cleanup EXIT
+
+if [ $# -ne 1 ]; then
+        echo "usage: ${0} <DOMAIN>"
+        exit 1
+fi
+
+previous=$(docker ps --all --filter "name=${name}" --format "{{.ID}}")
+if [[ ${previous} ]]; then
+        docker rm --force "${previous}" > /dev/null
+fi
+
+exec docker run ${DOCKER_RUN_ARGUMENTS:-"--detach"} \
+   --env "DOMAIN=${1}" \
+   --name "${name}" \
+   --hostname proxy \
+   --publish "0.0.0.0:443:443/tcp" \
+   `./build --quiet --target ${DOCKER_BUILD_TARGET:-run}`
+

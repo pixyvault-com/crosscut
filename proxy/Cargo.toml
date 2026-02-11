@@ -3,6 +3,10 @@ name = "proxy"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "_deps"
+path = "src/_deps.rs"
+
 [dependencies]
 email_address = { version = "0.2.9", default-features = false, features = [] }
 httparse = { version = "1.10.1", default-features = false, features = [] }

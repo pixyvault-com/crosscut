@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+set -ex
+
+exec docker run \
+   --interactive \
+   --tty \
+   --mount "type=bind,source=${PWD},destination=/proxy" \
+   `./build --quiet --target dev-base` cargo clippy --all-targets

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+set -ex
+
+export DOCKER_RUN_ARGUMENTS="--tty --mount type=bind,source=${PWD},destination=/proxy"
+export DOCKER_BUILD_TARGET="dev-base"
+exec ./start $@
