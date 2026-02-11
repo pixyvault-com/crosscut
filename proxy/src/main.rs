@@ -63,7 +63,7 @@ fn register_host(
     _host: &HostId,
     _push_notifier_identifier: ApplePushNotificationServiceDeviceToken,
 ) -> Result<(), std::io::Error> {
-    // validation: server is unique, dns-friendly
+    // validation: host is unique, dns-friendly
     // persist to postgres
     Ok(())
 }
