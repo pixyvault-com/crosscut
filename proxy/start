@@ -20,6 +20,7 @@ if [[ ${previous} ]]; then
 fi
 
 exec docker run ${DOCKER_RUN_ARGUMENTS:-"--detach"} \
+   --mount "type=bind,source=${PWD}/../../secrets,destination=/secrets" \
    --env "DOMAIN=${1}" \
    --name "${name}" \
    --hostname proxy \

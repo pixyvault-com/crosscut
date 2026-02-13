@@ -10,7 +10,7 @@ FROM rust:1.93 AS dev-base
         RUN cargo build --bin _deps
 
         WORKDIR /proxy
-        CMD [ "cargo", "run", "--bin", "proxy", "--frozen" ]
+        CMD [ "cargo", "run", "--bin", "proxy" ]
 
         EXPOSE 443
 
