@@ -1,17 +1,21 @@
-FROM rust:1.93 AS dev-base
+FROM rust:1.93 AS proxy-rust
+        RUN cargo install cargo-chef --locked
         RUN rustup component add rustfmt
         RUN rustup component add clippy
-
         ENV CARGO_TARGET_DIR=/proxy-target
-
-        # build dependencies
-        COPY Cargo.toml ./
-        COPY src/_deps.rs ./src/_deps.rs
-        RUN cargo build --bin _deps
-
         WORKDIR /proxy
-        CMD [ "cargo", "run", "--bin", "proxy" ]
 
+FROM proxy-rust AS planner
+        # prepare dependencies
+        COPY . .
+        RUN cargo chef prepare --recipe-path recipe.json
+
+FROM proxy-rust AS dev-base
+        # build dependencies
+        COPY --from=planner /proxy/recipe.json recipe.json
+        RUN cargo chef cook --recipe-path recipe.json
+
+        CMD [ "cargo", "run", "--frozen", "--bin", "proxy" ]
         EXPOSE 443
 
 FROM dev-base AS build
