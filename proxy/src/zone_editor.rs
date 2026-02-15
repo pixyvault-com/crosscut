@@ -58,4 +58,33 @@ impl ZoneEditor {
             cloudflare_dns_api_token: cloudflare_dns_api_token.to_owned(),
         })
     }
+
+    pub(crate) fn publish_acme_proof(&self, dns_proof: &str) -> Result<(), std::io::Error> {
+        let client = reqwest::blocking::Client::new();
+        let _: serde_json::Value = dbg!(
+            client
+                .request(
+                    reqwest::Method::POST,
+                    format!(
+                        "https://api.cloudflare.com/client/v4/zones/{}/dns_records",
+                        self.zone_id
+                    )
+                )
+                .bearer_auth(&self.cloudflare_dns_api_token)
+                .json(&serde_json::json!({
+                    "name": format!("_acme-challenge.{}", self.domain),
+                    "ttl": 1,
+                    "type": "TXT",
+                    "content": dbg!(dns_proof),
+                }))
+                .send()
+                .map_err(std::io::Error::other)?
+                .error_for_status()
+                .map_err(std::io::Error::other)?
+        )
+        .json()
+        .map_err(std::io::Error::other)?;
+
+        Ok(())
+    }
 }
