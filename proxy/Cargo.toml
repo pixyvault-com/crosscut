@@ -13,11 +13,13 @@ acme-micro = { version = "0.13.0", default-features = false, features = [] }
 anyhow = { version = "1.0.101", default-features = false, features = [] }
 email_address = { version = "0.2.9", default-features = false, features = [] }
 httparse = { version = "1.10.1", default-features = false, features = [] }
+log = { version = "0.4.29", default-features = false, features = [] }
 otp-auth = { version = "0.1.0", default-features = false, features = [] }
 phonenumber = { version = "0.3.9", default-features = false, features = [] }
 reqwest = { version = "0.13.2", default-features = false, features = ["blocking", "json", "default-tls"] }
 rustls = { version = "0.23.36", default-features = false, features = ["std", "aws-lc-rs"] }
 rustls-pki-types = { version = "1.14.0", default-features = false, features = [] }
 serde_json = { version = "1.0.149", default-features = false, features = [] }
+simple_logger = { version = "5.1.0", default-features = false, features = ["colors", "timestamps" ] }
 tungstenite = { version = "0.28.0", default-features = false, features = ["httparse"] }
 url = { version = "2.5.8", default-features = false, features = [] }

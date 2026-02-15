@@ -157,7 +157,7 @@ fn handle_one_tcp_connection(
         .as_deref()
     {
         Some([]) => {
-            println!("mode: hostless");
+            log::info!("mode: hostless");
 
             // TODO configure the correct cert
             let config = std::sync::Arc::new(
@@ -180,7 +180,7 @@ fn handle_one_tcp_connection(
         }
         Some([verb, host_string]) if *verb == "2fa" => {
             let host = HostId(host_string.to_string());
-            println!("mode: proxy_auth for {host:?}");
+            log::info!("mode: proxy_auth for {host:?}");
 
             // TODO configure the correct cert
             let config = std::sync::Arc::new(
@@ -203,7 +203,7 @@ fn handle_one_tcp_connection(
         }
         Some([host_string]) => {
             let host = HostId(host_string.to_string());
-            println!("mode: proxy for {host:?}");
+            log::info!("mode: proxy for {host:?}");
             handle_proxy(&host, client_hello, tcp_stream)
         }
         _ => Err(anyhow::anyhow!("unexpected sni server name: {servername}")),
@@ -291,6 +291,7 @@ fn handle_hostless(
 }
 
 fn main() -> anyhow::Result<()> {
+    simple_logger::SimpleLogger::new().init()?;
     let domain = std::env::var("DOMAIN")?;
 
     let _zone_editor = crate::zone_editor::ZoneEditor::new(
@@ -300,22 +301,22 @@ fn main() -> anyhow::Result<()> {
 
     let listener = std::net::TcpListener::bind("0.0.0.0:443")?;
 
-    println!("starting main loop");
+    log::info!("starting main loop");
     std::thread::scope(|scope| {
         for maybe_tcp_stream in listener.incoming() {
             let Ok(tcp_stream) = maybe_tcp_stream else {
-                println!("problem accepting: {maybe_tcp_stream:?}");
+                log::error!("problem accepting: {maybe_tcp_stream:?}");
                 break;
             };
 
-            println!("accepted: {tcp_stream:?}");
+            log::debug!("accepted: {tcp_stream:?}");
             scope.spawn(|| {
-                let _ = dbg!(handle_one_tcp_connection(&domain, tcp_stream));
-                println!("done");
+                let _ = handle_one_tcp_connection(&domain, tcp_stream);
+                log::debug!("done");
             });
         }
     });
-    println!("exiting main loop");
+    log::info!("exiting main loop");
 
     Ok(())
 }

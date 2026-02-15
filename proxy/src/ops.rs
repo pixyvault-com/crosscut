@@ -1,6 +1,8 @@
 mod zone_editor;
 
 fn main() -> anyhow::Result<()> {
+    simple_logger::SimpleLogger::new().init()?;
+
     let domain = std::env::var("DOMAIN").map_err(std::io::Error::other)?;
 
     let zone_editor = crate::zone_editor::ZoneEditor::new(
@@ -26,11 +28,11 @@ fn main() -> anyhow::Result<()> {
 
     zone_editor.publish_acme_proof(&dns_proof)?;
 
-    println!("looking for _acme-challenge.{domain} = {dns_proof}");
+    log::debug!("looking for _acme-challenge.{domain} = {dns_proof}");
     // TODO: this sleep is trash; we're waiting for cloudflare to publish the TXT record because
     // dns_challenge.validate() can only be called once (???)
     std::thread::sleep(std::time::Duration::from_secs(10));
-    let _ = dbg!(dns_challenge.validate(std::time::Duration::from_millis(5000)));
+    let _ = dns_challenge.validate(std::time::Duration::from_millis(5000));
     order.refresh()?;
 
     let csr_order = order
