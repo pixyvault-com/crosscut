@@ -6,10 +6,7 @@ pub(crate) struct ZoneEditor {
 }
 
 impl ZoneEditor {
-    pub(crate) fn new(
-        domain: &str,
-        cloudflare_dns_api_token: &str,
-    ) -> Result<Self, std::io::Error> {
+    pub(crate) fn new(domain: &str, cloudflare_dns_api_token: &str) -> anyhow::Result<Self> {
         let client = reqwest::blocking::Client::new();
         let zones: serde_json::Value = client
             .request(
@@ -17,18 +14,12 @@ impl ZoneEditor {
                 "https://api.cloudflare.com/client/v4/zones/",
             )
             .bearer_auth(cloudflare_dns_api_token)
-            .send()
-            .map_err(std::io::Error::other)?
-            .error_for_status()
-            .map_err(std::io::Error::other)?
-            .json()
-            .map_err(std::io::Error::other)?;
+            .send()?
+            .error_for_status()?
+            .json()?;
 
         if !zones["success"].as_bool().expect("'success' to be boolean") {
-            return Err(std::io::Error::other(format!(
-                "in /client/v4/zones: {}",
-                zones["errors"]
-            )));
+            anyhow::bail!("in /client/v4/zones: {}", zones["errors"]);
         }
 
         let (zone_name, zone_id) = zones["result"]
@@ -47,7 +38,7 @@ impl ZoneEditor {
                     None
                 }
             })
-            .ok_or(std::io::Error::other("couldn't find an appropriate zone"))?;
+            .ok_or(anyhow::anyhow!("couldn't find an appropriate zone"))?;
 
         println!("we're going to use the zone named {zone_name} with id {zone_id}");
 
@@ -59,31 +50,26 @@ impl ZoneEditor {
         })
     }
 
-    pub(crate) fn publish_acme_proof(&self, dns_proof: &str) -> Result<(), std::io::Error> {
+    pub(crate) fn publish_acme_proof(&self, dns_proof: &str) -> anyhow::Result<()> {
         let client = reqwest::blocking::Client::new();
-        let _: serde_json::Value = dbg!(
-            client
-                .request(
-                    reqwest::Method::POST,
-                    format!(
-                        "https://api.cloudflare.com/client/v4/zones/{}/dns_records",
-                        self.zone_id
-                    )
-                )
-                .bearer_auth(&self.cloudflare_dns_api_token)
-                .json(&serde_json::json!({
-                    "name": format!("_acme-challenge.{}", self.domain),
-                    "ttl": 1,
-                    "type": "TXT",
-                    "content": dbg!(dns_proof),
-                }))
-                .send()
-                .map_err(std::io::Error::other)?
-                .error_for_status()
-                .map_err(std::io::Error::other)?
-        )
-        .json()
-        .map_err(std::io::Error::other)?;
+        let _: serde_json::Value = client
+            .request(
+                reqwest::Method::POST,
+                format!(
+                    "https://api.cloudflare.com/client/v4/zones/{}/dns_records",
+                    self.zone_id
+                ),
+            )
+            .bearer_auth(&self.cloudflare_dns_api_token)
+            .json(&serde_json::json!({
+                "name": format!("_acme-challenge.{}", self.domain),
+                "ttl": 1,
+                "type": "TXT",
+                "content": dbg!(dns_proof),
+            }))
+            .send()?
+            .error_for_status()?
+            .json()?;
 
         Ok(())
     }

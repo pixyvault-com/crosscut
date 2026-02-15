@@ -61,7 +61,7 @@ impl PushNotifier for ApplePushNotificationService {
 fn register_host(
     _host: &HostId,
     _push_notifier_identifier: ApplePushNotificationServiceDeviceToken,
-) -> Result<(), std::io::Error> {
+) -> anyhow::Result<()> {
     // validation: host is unique, dns-friendly
     // persist to postgres
     Ok(())
@@ -72,7 +72,7 @@ fn handle_pseudo_push_notification(
     _websocket: tungstenite::protocol::WebSocket<
         rustls::Stream<rustls::ServerConnection, std::net::TcpStream>,
     >,
-) -> Result<(), std::io::Error> {
+) -> anyhow::Result<()> {
     loop {}
 }
 
@@ -80,7 +80,7 @@ fn register_consumer(
     _host: &HostId,
     _consumer: &ConsumerId,
     _secret: &otp::Secret,
-) -> Result<(), std::io::Error> {
+) -> anyhow::Result<()> {
     // persist to postgres **encrypted**
     Ok(())
 }
@@ -88,7 +88,7 @@ fn register_consumer(
 fn handle_proxy_auth(
     _host: &HostId,
     _consumer_stream: rustls::Stream<rustls::ServerConnection, std::net::TcpStream>,
-) -> Result<(), std::io::Error> {
+) -> anyhow::Result<()> {
     // fetch totp secret for (HostId, ConsumerId) (or 404)
     // missing or invalid basic auth header:
     //   send one-time code on appropriate channel
@@ -102,7 +102,7 @@ fn handle_proxy(
     _host: &HostId,
     _client_hello: rustls::server::ClientHello,
     _consumer_stream: std::net::TcpStream,
-) -> Result<(), std::io::Error> {
+) -> anyhow::Result<()> {
     // send push notification on best channel to host
     // park
     Ok(())
@@ -114,7 +114,7 @@ fn handle_tunnel(
     _websocket: tungstenite::protocol::WebSocket<
         rustls::Stream<rustls::ServerConnection, std::net::TcpStream>,
     >,
-) -> Result<(), std::io::Error> {
+) -> anyhow::Result<()> {
     // connect host_stream to consumer_stream
     Ok(())
 }
@@ -122,7 +122,7 @@ fn handle_tunnel(
 fn handle_one_tcp_connection(
     domain: &String,
     mut tcp_stream: std::net::TcpStream,
-) -> Result<(), std::io::Error> {
+) -> anyhow::Result<()> {
     // Read TLS packets until we've consumed a full client hello and are ready to accept a connection.
     let accepted = {
         let mut acceptor = rustls::server::Acceptor::default();
@@ -135,7 +135,7 @@ fn handle_one_tcp_connection(
                 Ok(None) => continue,
                 Err((e, mut alert)) => {
                     let _ = alert.write_all(&mut tcp_stream);
-                    return Err(std::io::Error::other(e));
+                    anyhow::bail!(e);
                 }
             }
         }
@@ -144,7 +144,7 @@ fn handle_one_tcp_connection(
     let client_hello = accepted.client_hello();
 
     let Some(servername) = client_hello.server_name() else {
-        return Err(std::io::Error::other("missing sni server name"));
+        anyhow::bail!("missing sni server name");
     };
 
     match servername
@@ -166,14 +166,13 @@ fn handle_one_tcp_connection(
                     .with_single_cert(
                         vec![],
                         rustls_pki_types::PrivatePkcs8KeyDer::from(vec![]).into(),
-                    )
-                    .map_err(std::io::Error::other)?,
+                    )?,
             );
 
             let mut ssl_connection =
                 accepted.into_connection(config).map_err(|(e, mut alert)| {
                     let _ = alert.write_all(&mut tcp_stream);
-                    std::io::Error::other(e)
+                    e
                 })?;
             let ssl_stream = rustls::Stream::new(&mut ssl_connection, &mut tcp_stream);
 
@@ -190,14 +189,13 @@ fn handle_one_tcp_connection(
                     .with_single_cert(
                         vec![],
                         rustls_pki_types::PrivatePkcs8KeyDer::from(vec![]).into(),
-                    )
-                    .map_err(std::io::Error::other)?,
+                    )?,
             );
 
             let mut ssl_connection =
                 accepted.into_connection(config).map_err(|(e, mut alert)| {
                     let _ = alert.write_all(&mut tcp_stream);
-                    std::io::Error::other(e)
+                    e
                 })?;
             let ssl_stream = rustls::Stream::new(&mut ssl_connection, &mut tcp_stream);
 
@@ -208,16 +206,14 @@ fn handle_one_tcp_connection(
             println!("mode: proxy for {host:?}");
             handle_proxy(&host, client_hello, tcp_stream)
         }
-        _ => Err(std::io::Error::other(format!(
-            "unexpected sni server name: {servername}"
-        ))),
+        _ => Err(anyhow::anyhow!("unexpected sni server name: {servername}")),
     }
 }
 
 fn handle_hostless(
     domain: &String,
     mut ssl_stream: rustls::Stream<rustls::ServerConnection, std::net::TcpStream>,
-) -> Result<(), std::io::Error> {
+) -> anyhow::Result<()> {
     let mut headers = [httparse::EMPTY_HEADER; 64];
     let mut request = httparse::Request::new(&mut headers);
 
@@ -226,15 +222,13 @@ fn handle_hostless(
     let n = ssl_stream.read(&mut buffer)?;
     if n == 0 {
         // TODO eof???
-        return Err(std::io::Error::other("eof"));
+        anyhow::bail!("eof");
     }
-    let result = request.parse(&buffer[..n]).map_err(std::io::Error::other)?;
+    let result = request.parse(&buffer[..n])?;
     if result.is_partial() {
         // TODO request didn't fit in the buffer. probably need to handle this, not
         // error?
-        return Err(std::io::Error::other(
-            "request is still partial after one read()",
-        ));
+        anyhow::bail!("request is still partial after one read()");
     }
     let partially_read_part = buffer[result.unwrap()..n].to_vec();
 
@@ -248,7 +242,7 @@ fn handle_hostless(
                 None
             }
         })
-        .ok_or_else(|| std::io::Error::other("missing host header"))?;
+        .ok_or_else(|| anyhow::anyhow!("missing host header"))?;
 
     if http_host_header != domain.as_bytes() {
         // TODO emit 404
@@ -296,8 +290,8 @@ fn handle_hostless(
     Ok(())
 }
 
-fn main() -> std::io::Result<()> {
-    let domain = std::env::var("DOMAIN").map_err(std::io::Error::other)?;
+fn main() -> anyhow::Result<()> {
+    let domain = std::env::var("DOMAIN")?;
 
     let _zone_editor = crate::zone_editor::ZoneEditor::new(
         &domain,
